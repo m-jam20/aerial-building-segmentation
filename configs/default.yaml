@@ -1,0 +1,71 @@
+# All settings for this project: splits, tiling, training, evaluation.
+# 2 cities x the ids below: 20 train, 4 val, 6 test images (~2.1 GB download).
+data:
+  raw_dir: data/raw
+  # Hugging Face mirror of the Inria dataset, pinned for reproducibility
+  repo_id: blanchon/INRIA-Aerial-Image-Labeling
+  revision: 98acad6712f12bb938bb0a8cf025bbace114c7e5
+  cities: [austin, vienna]
+  # Image ids per split. Splitting by whole image prevents tile leakage.
+  # 2 cities x these ids: 20 train, 4 val, 6 test images.
+  splits:
+    test: [1, 2, 3]
+    val: [4, 5]
+    train: [6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+  tiles_dir: data/tiles
+  tile_size: 500
+  # Share of building-free tiles kept for training. Val and test keep all tiles.
+  keep_empty_fraction: 0.1
+seed: 42
+train:
+  # Measured on a 16 GB Quadro RTX 5000: 4.5 GB reserved, about 88 images/s.
+  # Throughput peaks at batch_size 16 and falls off above it: the GPU is
+  # compute-bound, so the spare VRAM buys nothing.
+  crop_size: 256
+  batch_size: 16
+  learning_rate: 0.0003
+  weight_decay: 0.0001
+  epochs: 50
+  num_workers: 4
+  # Off: gave NaN losses and ran about 4x slower on the GTX 1650
+  amp: false
+val:
+  crop_size: 480
+  batch_size: 4
+model:
+  # unet_scratch, unet_resnet34 or deeplabv3plus_resnet34. The resnet34 ones
+  # use ImageNet-pretrained encoders and their own normalization; override
+  # with `--arch` so every other setting stays identical across a benchmark.
+  arch: unet_scratch
+  # base_channels and depth apply to unet_scratch only.
+  base_channels: 32
+  depth: 4
+loss:
+  bce_weight: 1.0
+  dice_weight: 1.0
+evaluate:
+  # Full images are scored with overlapping windows. Size must be divisible by 16.
+  window: 512
+  stride: 256
+  batch_size: 4
+  threshold: 0.5
+
+# Small settings used by the notebooks so they finish in a couple of minutes.
+# Not the published configuration: see train/model above for that.
+notebook:
+  # notebooks/03 - overfit-one-batch check
+  overfit:
+    base_channels: 16
+    depth: 3
+    learning_rate: 0.003
+    steps: 201
+  # notebooks/04 - short training run
+  short_run:
+    crop_size: 128
+    batch_size: 8
+    epochs: 3
+    train_tiles: 200
+    val_tiles: 60
+    base_channels: 16
+    depth: 3
+    learning_rate: 0.001
